@@ -1,0 +1,17 @@
+# Archivos de compilación
+*.exe
+*.test
+*.out
+
+# Archivos temporales
+*.log
+*.tmp
+
+# Archivos de dependencias
+vendor/
+
+# Archivos de entorno de desarrollo
+.idea/
+.vscode/
+
+.env
