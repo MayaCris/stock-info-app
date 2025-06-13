@@ -32,6 +32,7 @@ func Load() (*Config, error) {
 		External: loadExternalConfig(),
 		Security: loadSecurityConfig(),
 		Logging:  loadLoggingConfig(),
+		ThirdStockAPI: loadThirdStockAPIConfig(),
 	}
 
 	// Validate configuration
@@ -101,6 +102,14 @@ func loadLoggingConfig() LoggingConfig {
 	return LoggingConfig{
 		Level:  getEnvRequired("LOG_LEVEL"),
 		Format: getEnvRequired("LOG_FORMAT"),
+	}
+}
+
+func loadThirdStockAPIConfig() ThirdStockAPIConfig {
+	return ThirdStockAPIConfig{
+		Name:      "Third Stock API",
+		Auth:       getEnvRequired("THIRD_STOCK_API_AUTH"),
+		BaseURL:   getEnvRequired("THIRD_STOCK_API_BASE_URL"),
 	}
 }
 

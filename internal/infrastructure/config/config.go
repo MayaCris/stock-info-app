@@ -13,6 +13,7 @@ type Config struct {
 	External ExternalConfig `mapstructure:"external"`
 	Security SecurityConfig `mapstructure:"security"`
 	Logging  LoggingConfig  `mapstructure:"logging"`
+	ThirdStockAPI ThirdStockAPIConfig `mapstructure:"third_stock_api"`
 }
 
 // AppConfig holds application-specific configuration
@@ -68,6 +69,13 @@ type SecurityConfig struct {
 type LoggingConfig struct {
 	Level  string `mapstructure:"level" validate:"required,oneof=debug info warn error"`
 	Format string `mapstructure:"format" validate:"required,oneof=json text"`
+}
+
+// ThirdStockAPIConfig holds configuration for a third-party stock API
+type ThirdStockAPIConfig struct {
+	Name    string `mapstructure:"name" validate:"required"`
+	Auth    string `mapstructure:"auth" validate:"required"`
+	BaseURL string `mapstructure:"base_url" validate:"required,url"`
 }
 
 // GetDSN returns the database connection string for CockroachDB
