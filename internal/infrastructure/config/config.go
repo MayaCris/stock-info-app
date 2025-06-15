@@ -7,18 +7,24 @@ import (
 
 // Config holds all configuration for our application
 type Config struct {
-	App      AppConfig      `mapstructure:"app"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Cache    CacheConfig    `mapstructure:"cache"`
-	External ExternalConfig `mapstructure:"external"`
-	Security SecurityConfig `mapstructure:"security"`
-	Logging  LoggingConfig  `mapstructure:"logging"`
+	App           AppConfig           `mapstructure:"app"`
+	Server        ServerConfig        `mapstructure:"server"`
+	RESTAPI       RESTAPIConfig       `mapstructure:"rest_api"`
+	CORS          CORSConfig          `mapstructure:"cors"`
+	RateLimit     RateLimitConfig     `mapstructure:"rate_limit"`
+	Database      DatabaseConfig      `mapstructure:"database"`
+	Cache         CacheConfig         `mapstructure:"cache"`
+	External      ExternalConfig      `mapstructure:"external"`
+	Security      SecurityConfig      `mapstructure:"security"`
+	Logging       LoggingConfig       `mapstructure:"logging"`
+	ServerLogging ServerLoggingConfig `mapstructure:"server_logging"`
 	ThirdStockAPI ThirdStockAPIConfig `mapstructure:"third_stock_api"`
 }
 
 // AppConfig holds application-specific configuration
 type AppConfig struct {
 	Name      string `mapstructure:"name" validate:"required"`
+	Version   string `mapstructure:"version" validate:"required"`
 	Env       string `mapstructure:"env" validate:"required,oneof=development staging production"`
 	Port      string `mapstructure:"port" validate:"required"`
 	RateLimit int    `mapstructure:"rate_limit" validate:"min=1"`

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/MayaCris/stock-info-app/internal/domain/entities"
+	"github.com/google/uuid"
 )
 
 // StockRatingRepository defines the contract for stock rating data access
@@ -40,7 +40,7 @@ type StockRatingRepository interface {
 	MarkManyAsProcessed(ctx context.Context, ids []uuid.UUID) error
 
 	// Delete operations
-	Delete(ctx context.Context, id uuid.UUID) error // Soft delete
+	Delete(ctx context.Context, id uuid.UUID) error     // Soft delete
 	HardDelete(ctx context.Context, id uuid.UUID) error // Permanent delete
 
 	// Query operations - Basic stats
@@ -51,7 +51,7 @@ type StockRatingRepository interface {
 
 	// Business operations - CRITICAL for API sync
 	FindExisting(ctx context.Context, companyID, brokerageID uuid.UUID, eventTime time.Time) (*entities.StockRating, error)
-	FindOrCreateRating(ctx context.Context, companyID, brokerageID uuid.UUID, eventTime time.Time, 
+	FindOrCreateRating(ctx context.Context, companyID, brokerageID uuid.UUID, eventTime time.Time,
 		action, ratingFrom, ratingTo, targetFrom, targetTo string, rawData []byte) (*entities.StockRating, error)
 	UpsertMany(ctx context.Context, ratings []*entities.StockRating) error
 	BulkInsertIgnoreDuplicates(ctx context.Context, ratings []*entities.StockRating) (int, error) // Returns count inserted
@@ -86,6 +86,10 @@ type StockRatingRepository interface {
 	GetRatingsWithMissingData(ctx context.Context) ([]*entities.StockRating, error)
 	GetRatingsWithInvalidDates(ctx context.Context) ([]*entities.StockRating, error)
 	ValidateDataIntegrity(ctx context.Context) (DataIntegrityReport, error)
+
+	// Orphan detection operations
+	GetOrphanedStockRatings(ctx context.Context) ([]*entities.StockRating, error)
+	GetOrphanedStockRatingsWithReasons(ctx context.Context) ([]OrphanedRatingResult, error)
 }
 
 // Supporting types for analytics operations
@@ -107,11 +111,11 @@ type BrokerageRatingCount struct {
 
 // DailyRatingCount represents rating count per day
 type DailyRatingCount struct {
-	Date        time.Time `json:"date"`
-	RatingCount int64     `json:"rating_count"`
-	Upgrades    int64     `json:"upgrades"`
-	Downgrades  int64     `json:"downgrades"`
-	Reiterations int64    `json:"reiterations"`
+	Date         time.Time `json:"date"`
+	RatingCount  int64     `json:"rating_count"`
+	Upgrades     int64     `json:"upgrades"`
+	Downgrades   int64     `json:"downgrades"`
+	Reiterations int64     `json:"reiterations"`
 }
 
 // DuplicateGroup represents a group of duplicate ratings
@@ -125,13 +129,23 @@ type DuplicateGroup struct {
 
 // DataIntegrityReport represents data quality metrics
 type DataIntegrityReport struct {
-	TotalRatings        int64 `json:"total_ratings"`
-	MissingCompany      int64 `json:"missing_company"`
-	MissingBrokerage    int64 `json:"missing_brokerage"`
-	InvalidEventTime    int64 `json:"invalid_event_time"`
-	EmptyAction         int64 `json:"empty_action"`
-	DuplicateCount      int64 `json:"duplicate_count"`
-	OrphanedRatings     int64 `json:"orphaned_ratings"`     // Company/Brokerage not found
-	ProcessedRatings    int64 `json:"processed_ratings"`
-	UnprocessedRatings  int64 `json:"unprocessed_ratings"`
+	TotalRatings       int64 `json:"total_ratings"`
+	MissingCompany     int64 `json:"missing_company"`
+	MissingBrokerage   int64 `json:"missing_brokerage"`
+	InvalidEventTime   int64 `json:"invalid_event_time"`
+	EmptyAction        int64 `json:"empty_action"`
+	DuplicateCount     int64 `json:"duplicate_count"`
+	OrphanedRatings    int64 `json:"orphaned_ratings"` // Company/Brokerage not found
+	ProcessedRatings   int64 `json:"processed_ratings"`
+	UnprocessedRatings int64 `json:"unprocessed_ratings"`
+}
+
+// OrphanedRatingResult represents a stock rating with orphan details
+type OrphanedRatingResult struct {
+	ID          uuid.UUID `json:"id"`
+	CompanyID   uuid.UUID `json:"company_id"`
+	BrokerageID uuid.UUID `json:"brokerage_id"`
+	EventTime   time.Time `json:"event_time"`
+	Action      string    `json:"action"`
+	Reason      string    `json:"reason"`
 }
