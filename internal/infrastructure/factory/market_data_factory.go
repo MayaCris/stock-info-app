@@ -7,6 +7,7 @@ import (
 	"github.com/MayaCris/stock-info-app/internal/application/services/interfaces"
 	repoInterfaces "github.com/MayaCris/stock-info-app/internal/domain/repositories/interfaces"
 	"github.com/MayaCris/stock-info-app/internal/infrastructure/config"
+	"github.com/MayaCris/stock-info-app/internal/infrastructure/external/market_data/alphavantage"
 	"github.com/MayaCris/stock-info-app/internal/infrastructure/external/market_data/finnhub"
 	"github.com/MayaCris/stock-info-app/internal/infrastructure/logger"
 )
@@ -24,8 +25,10 @@ type MarketDataFactory struct {
 	companyRepo         repoInterfaces.CompanyRepository
 
 	// External clients
-	finnhubClient  *finnhub.Client
-	finnhubAdapter *finnhub.Adapter
+	finnhubClient       *finnhub.Client
+	finnhubAdapter      *finnhub.Adapter
+	alphavantageClient  *alphavantage.Client
+	alphavantageAdapter *alphavantage.Adapter
 }
 
 // MarketDataFactoryConfig represents configuration for market data factory
@@ -53,6 +56,7 @@ func NewMarketDataFactory(config MarketDataFactoryConfig) *MarketDataFactory {
 
 	// Initialize external clients
 	factory.initializeFinnhubClient()
+	factory.initializeAlphaVantageClient()
 
 	return factory
 }
@@ -67,6 +71,8 @@ func (f *MarketDataFactory) CreateMarketDataService() interfaces.MarketDataServi
 		CompanyRepo:         f.companyRepo,
 		FinnhubClient:       f.finnhubClient,
 		FinnhubAdapter:      f.finnhubAdapter,
+		AlphaVantageClient:  f.alphavantageClient,
+		AlphaVantageAdapter: f.alphavantageAdapter,
 		Logger:              f.logger,
 	})
 }
@@ -79,6 +85,16 @@ func (f *MarketDataFactory) GetFinnhubClient() *finnhub.Client {
 // GetFinnhubAdapter returns the Finnhub adapter
 func (f *MarketDataFactory) GetFinnhubAdapter() *finnhub.Adapter {
 	return f.finnhubAdapter
+}
+
+// GetAlphaVantageClient returns the Alpha Vantage client
+func (f *MarketDataFactory) GetAlphaVantageClient() *alphavantage.Client {
+	return f.alphavantageClient
+}
+
+// GetAlphaVantageAdapter returns the Alpha Vantage adapter
+func (f *MarketDataFactory) GetAlphaVantageAdapter() *alphavantage.Adapter {
+	return f.alphavantageAdapter
 }
 
 // initializeFinnhubClient initializes the Finnhub API client
@@ -106,10 +122,32 @@ func (f *MarketDataFactory) initializeFinnhubClient() {
 	// Create Finnhub adapter
 	f.finnhubAdapter = finnhub.NewAdapter(f.logger)
 
-	f.logger.Info(nil, "Finnhub client initialized",
-		logger.String("base_url", baseURL),
-		logger.Bool("has_api_key", apiKey != ""),
-	)
+	f.logger.Info(nil, "Finnhub API client initialized",
+		logger.String("component", "finnhub_client"))
+}
+
+// initializeAlphaVantageClient initializes the Alpha Vantage API client
+func (f *MarketDataFactory) initializeAlphaVantageClient() {
+	// Get configuration from environment
+	apiKey := f.config.External.Secondary.Key
+	baseURL := f.config.External.Secondary.BaseURL
+
+	if apiKey == "" {
+		f.logger.Warn(nil, "Alpha Vantage API key not configured")
+	}
+
+	if baseURL == "" {
+		baseURL = "https://www.alphavantage.co/query"
+	}
+
+	// Create Alpha Vantage client
+	f.alphavantageClient = alphavantage.NewClient(f.config, f.logger)
+
+	// Create Alpha Vantage adapter
+	f.alphavantageAdapter = alphavantage.NewAdapter(f.logger)
+
+	f.logger.Info(nil, "Alpha Vantage API client initialized",
+		logger.String("component", "alphavantage_client"))
 }
 
 // HealthCheck checks the health of external APIs
@@ -126,6 +164,16 @@ func (f *MarketDataFactory) HealthCheck() map[string]string {
 	} else {
 		results["finnhub"] = "not_configured"
 	}
+	// Check Alpha Vantage API
+	if f.alphavantageClient != nil {
+		if err := f.alphavantageClient.HealthCheck(nil); err != nil {
+			results["alphavantage"] = "unhealthy: " + err.Error()
+		} else {
+			results["alphavantage"] = "healthy"
+		}
+	} else {
+		results["alphavantage"] = "not_configured"
+	}
 
 	return results
 }
@@ -134,6 +182,7 @@ func (f *MarketDataFactory) HealthCheck() map[string]string {
 func (f *MarketDataFactory) RefreshConfiguration(newConfig *config.Config) {
 	f.config = newConfig
 	f.initializeFinnhubClient()
+	f.initializeAlphaVantageClient()
 
 	f.logger.Info(nil, "Market data factory configuration refreshed")
 }

@@ -42,8 +42,8 @@ type TestSuite struct {
 	SuccessRate float64       `json:"success_rate"`
 }
 
-// FinnhubTester maneja las pruebas de la API de Finnhub
-type FinnhubTester struct {
+// EndpointTester maneja las pruebas de los endpoints REST
+type EndpointTester struct {
 	baseURL    string
 	client     *http.Client
 	logger     logger.Logger
@@ -52,8 +52,8 @@ type FinnhubTester struct {
 	suite      *TestSuite
 }
 
-// NewFinnhubTester crea una nueva instancia del tester
-func NewFinnhubTester() (*FinnhubTester, error) {
+// NewEndpointTester crea una nueva instancia del tester
+func NewEndpointTester() (*EndpointTester, error) {
 	// Cargar configuración
 	cfg, err := config.Load()
 	if err != nil {
@@ -77,7 +77,7 @@ func NewFinnhubTester() (*FinnhubTester, error) {
 		Timeout: 30 * time.Second,
 	}
 
-	return &FinnhubTester{
+	return &EndpointTester{
 		baseURL:    "http://localhost:8080/api/v1",
 		client:     client,
 		logger:     appLogger,
@@ -102,7 +102,7 @@ func createTestLogger() (logger.Logger, error) {
 	// Crear nombre de archivo con timestamp
 	timestamp := time.Now().Format("20060102_150405")
 
-	// Configuración específica para el logger de tests
+	// Configuración específica para el logger de tests de Finnhub
 	logConfig := &logger.LogConfig{
 		Level:      logger.DebugLevel,
 		Format:     "json",
@@ -127,7 +127,7 @@ func createTestLogger() (logger.Logger, error) {
 }
 
 // checkServerHealth verifica si el servidor está funcionando
-func (ft *FinnhubTester) checkServerHealth() error {
+func (ft *EndpointTester) checkServerHealth() error {
 	ctx := context.Background()
 	ft.logger.Info(ctx, "Verificando estado del servidor...")
 
@@ -146,7 +146,7 @@ func (ft *FinnhubTester) checkServerHealth() error {
 }
 
 // makeRequest realiza una petición HTTP y registra el resultado
-func (ft *FinnhubTester) makeRequest(testName, endpoint, method string) TestResult {
+func (ft *EndpointTester) makeRequest(testName, endpoint, method string) TestResult {
 	ctx := context.Background()
 	startTime := time.Now()
 
@@ -232,99 +232,8 @@ func (ft *FinnhubTester) makeRequest(testName, endpoint, method string) TestResu
 	return result
 }
 
-// runAllTests ejecuta todas las pruebas de la suite
-func (ft *FinnhubTester) runAllTests() error {
-	ctx := context.Background()
-
-	ft.logger.Info(ctx, "🧪 Iniciando suite de pruebas de Finnhub API",
-		logger.String("base_url", ft.baseURL),
-		logger.Time("start_time", ft.suite.StartTime),
-	)
-
-	ft.testLogger.Info(ctx, "=== INICIANDO SUITE DE PRUEBAS FINNHUB ===",
-		logger.String("version", ft.suite.Version),
-		logger.String("base_url", ft.baseURL),
-	)
-
-	// Verificar servidor antes de empezar
-	if err := ft.checkServerHealth(); err != nil {
-		return fmt.Errorf("servidor no está disponible: %w", err)
-	}
-
-	// Símbolos de prueba
-	testSymbols := []string{"AAPL", "MSFT", "GOOGL", "TSLA", "AMZN"}
-
-	// Test 1: Health check
-	ft.addTest(ft.makeRequest(
-		"Server Health Check",
-		ft.baseURL[:strings.LastIndex(ft.baseURL, "/api")],
-		"GET",
-	))
-
-	// Test 2: Cotizaciones en tiempo real
-	for _, symbol := range testSymbols {
-		ft.addTest(ft.makeRequest(
-			fmt.Sprintf("Real-time Quote - %s", symbol),
-			fmt.Sprintf("%s/market-data/quote/%s", ft.baseURL, symbol),
-			"GET",
-		))
-	}
-
-	// Test 3: Perfiles de empresa
-	for _, symbol := range testSymbols[:3] { // Solo 3 para no sobrecargar
-		ft.addTest(ft.makeRequest(
-			fmt.Sprintf("Company Profile - %s", symbol),
-			fmt.Sprintf("%s/market-data/profile/%s", ft.baseURL, symbol),
-			"GET",
-		))
-	}
-
-	// Test 4: Noticias de empresa
-	for _, symbol := range testSymbols[:2] { // Solo 2 para pruebas
-		ft.addTest(ft.makeRequest(
-			fmt.Sprintf("Company News - %s", symbol),
-			fmt.Sprintf("%s/market-data/news/%s", ft.baseURL, symbol),
-			"GET",
-		))
-	}
-
-	// Test 5: Métricas financieras
-	for _, symbol := range testSymbols[:3] {
-		ft.addTest(ft.makeRequest(
-			fmt.Sprintf("Basic Financials - %s", symbol),
-			fmt.Sprintf("%s/market-data/financials/%s", ft.baseURL, symbol),
-			"GET",
-		))
-	}
-
-	// Test 6: Market Overview
-	ft.addTest(ft.makeRequest(
-		"Market Overview",
-		fmt.Sprintf("%s/market-data/overview", ft.baseURL),
-		"GET",
-	))
-
-	// Test 7: Endpoints que deberían fallar (para probar manejo de errores)
-	ft.addTest(ft.makeRequest(
-		"Invalid Symbol Test",
-		fmt.Sprintf("%s/market-data/quote/INVALID_SYMBOL_TEST", ft.baseURL),
-		"GET",
-	))
-
-	ft.addTest(ft.makeRequest(
-		"Non-existent Endpoint Test",
-		fmt.Sprintf("%s/market-data/nonexistent", ft.baseURL),
-		"GET",
-	))
-
-	// Finalizar suite
-	ft.finalizeSuite()
-
-	return nil
-}
-
 // addTest añade un resultado de prueba a la suite
-func (ft *FinnhubTester) addTest(result TestResult) {
+func (ft *EndpointTester) addTest(result TestResult) {
 	ft.suite.Tests = append(ft.suite.Tests, result)
 	ft.suite.TotalTests++
 
@@ -344,7 +253,7 @@ func (ft *FinnhubTester) addTest(result TestResult) {
 }
 
 // finalizeSuite completa la suite de pruebas y genera reporte
-func (ft *FinnhubTester) finalizeSuite() {
+func (ft *EndpointTester) finalizeSuite() {
 	ctx := context.Background()
 	ft.suite.EndTime = time.Now()
 	ft.suite.Duration = ft.suite.EndTime.Sub(ft.suite.StartTime)
@@ -378,7 +287,7 @@ func (ft *FinnhubTester) finalizeSuite() {
 }
 
 // generateJSONReport genera un reporte detallado en JSON
-func (ft *FinnhubTester) generateJSONReport() {
+func (ft *EndpointTester) generateJSONReport() {
 	timestamp := time.Now().Format("20060102_150405")
 	reportFile := filepath.Join("logs", fmt.Sprintf("finnhub_test_report_%s.json", timestamp))
 
@@ -399,16 +308,16 @@ func (ft *FinnhubTester) generateJSONReport() {
 }
 
 // printSummary muestra un resumen en la consola
-func (ft *FinnhubTester) printSummary() {
-	fmt.Printf("\n" + strings.Repeat("=", 60) + "\n")
+func (ft *EndpointTester) printSummary() {
+	fmt.Print("\n" + strings.Repeat("=", 60) + "\n")
 	fmt.Printf("🧪 RESUMEN DE PRUEBAS FINNHUB API\n")
-	fmt.Printf(strings.Repeat("=", 60) + "\n")
+	fmt.Print(strings.Repeat("=", 60) + "\n")
 	fmt.Printf("📊 Total de pruebas: %d\n", ft.suite.TotalTests)
 	fmt.Printf("✅ Exitosas: %d\n", ft.suite.Passed)
 	fmt.Printf("❌ Fallidas: %d\n", ft.suite.Failed)
 	fmt.Printf("📈 Tasa de éxito: %.1f%%\n", ft.suite.SuccessRate)
 	fmt.Printf("⏱️  Duración total: %v\n", ft.suite.Duration.Round(time.Millisecond))
-	fmt.Printf(strings.Repeat("=", 60) + "\n")
+	fmt.Print(strings.Repeat("=", 60) + "\n")
 
 	if ft.suite.Failed > 0 {
 		fmt.Printf("\n❌ PRUEBAS FALLIDAS:\n")
@@ -423,37 +332,251 @@ func (ft *FinnhubTester) printSummary() {
 	if ft.suite.SuccessRate >= 80 {
 		fmt.Printf("🎉 ¡INTEGRACIÓN FINNHUB EXITOSA!\n")
 	} else {
-		fmt.Printf("⚠️  INTEGRACIÓN NECESITA REVISIÓN\n")
+		fmt.Printf("⚠️  INTEGRACIÓN FINNHUB NECESITA REVISIÓN\n")
 	}
-
 	fmt.Printf("\n📁 Logs generados en: logs/\n")
 	fmt.Printf("📄 Reporte detallado: logs/finnhub_test_report_*.json\n")
-	fmt.Printf(strings.Repeat("=", 60) + "\n")
+	fmt.Print(strings.Repeat("=", 60) + "\n")
 }
 
-// min helper function
-func min(a, b int) int {
-	if a < b {
-		return a
+// runAllTests ejecuta todas las pruebas de la suite
+func (ft *EndpointTester) runAllTests() error {
+	ctx := context.Background()
+
+	ft.logger.Info(ctx, "🧪 Iniciando suite de pruebas de Finnhub API",
+		logger.String("base_url", ft.baseURL),
+		logger.Time("start_time", ft.suite.StartTime),
+	)
+
+	ft.testLogger.Info(ctx, "=== INICIANDO SUITE DE PRUEBAS FINNHUB ===",
+		logger.String("version", ft.suite.Version),
+		logger.String("base_url", ft.baseURL),
+	)
+
+	// Verificar servidor antes de empezar
+	if err := ft.checkServerHealth(); err != nil {
+		return fmt.Errorf("servidor no está disponible: %w", err)
 	}
-	return b
+
+	// Símbolos de prueba
+	testSymbols := []string{"AAPL", "MSFT", "GOOGL"}
+
+	// Test 1: Health check
+	ft.addTest(ft.makeRequest(
+		"Server Health Check",
+		ft.baseURL[:strings.LastIndex(ft.baseURL, "/api")]+"/health",
+		"GET",
+	))
+
+	// Test 2: Cotizaciones en tiempo real (Finnhub)
+	for _, symbol := range testSymbols {
+		ft.addTest(ft.makeRequest(
+			fmt.Sprintf("Real-time Quote - %s", symbol),
+			fmt.Sprintf("%s/market-data/quote/%s", ft.baseURL, symbol),
+			"GET",
+		))
+	}
+
+	// Test 3: Perfiles de empresa (Finnhub)
+	for _, symbol := range testSymbols[:2] { // Solo 2 para no sobrecargar
+		ft.addTest(ft.makeRequest(
+			fmt.Sprintf("Company Profile - %s", symbol),
+			fmt.Sprintf("%s/market-data/profile/%s", ft.baseURL, symbol),
+			"GET",
+		))
+	}
+
+	// Test 4: Noticias de empresa (Finnhub)
+	for _, symbol := range testSymbols[:1] { // Solo 1 para pruebas
+		ft.addTest(ft.makeRequest(
+			fmt.Sprintf("Company News - %s", symbol),
+			fmt.Sprintf("%s/market-data/news/%s?days=7", ft.baseURL, symbol),
+			"GET",
+		))
+	}
+
+	// Test 5: Métricas financieras (Finnhub)
+	for _, symbol := range testSymbols[:2] {
+		ft.addTest(ft.makeRequest(
+			fmt.Sprintf("Basic Financials - %s", symbol),
+			fmt.Sprintf("%s/market-data/financials/%s", ft.baseURL, symbol),
+			"GET",
+		))
+	}
+	// Test 6: Market Overview (Finnhub)
+	ft.addTest(ft.makeRequest(
+		"Market Overview",
+		fmt.Sprintf("%s/market-data/overview", ft.baseURL),
+		"GET",
+	))
+
+	// Test 7: Recommendation Trends (Finnhub)
+	ft.addTest(ft.makeRequest(
+		"Finnhub Recommendation Trends - AAPL",
+		fmt.Sprintf("%s/market-data/recommendations/%s", ft.baseURL, testSymbols[0]),
+		"GET",
+	))
+
+	// Test 8: Earnings Calendar (Finnhub)
+	ft.addTest(ft.makeRequest(
+		"Finnhub Earnings Calendar",
+		fmt.Sprintf("%s/market-data/earnings-calendar", ft.baseURL),
+		"GET",
+	))
+
+	// Test 9: Market Status (Finnhub)
+	ft.addTest(ft.makeRequest(
+		"Finnhub Market Status",
+		fmt.Sprintf("%s/market-data/market-status", ft.baseURL),
+		"GET",
+	))
+
+	// Test 10: Endpoints que deberían fallar (para probar manejo de errores)
+	ft.addTest(ft.makeRequest(
+		"Invalid Symbol Test",
+		fmt.Sprintf("%s/market-data/quote/INVALID_SYMBOL_TEST", ft.baseURL),
+		"GET",
+	))
+
+	ft.addTest(ft.makeRequest(
+		"Non-existent Endpoint Test",
+		fmt.Sprintf("%s/market-data/nonexistent", ft.baseURL),
+		"GET"))
+	// Finalizar suite
+	ft.finalizeSuite()
+
+	return nil
 }
 
-func main() {
-	fmt.Printf("🚀 Finnhub API Integration Tester\n")
-	fmt.Printf("==================================\n\n")
+// runFinnhubTests ejecuta solo las pruebas específicas de Finnhub
+func (ft *EndpointTester) runFinnhubTests() error {
+	ctx := context.Background()
+
+	ft.logger.Info(ctx, "🧪 Iniciando suite de pruebas específicas de Finnhub API",
+		logger.String("base_url", ft.baseURL),
+		logger.Time("start_time", ft.suite.StartTime),
+	)
+
+	ft.testLogger.Info(ctx, "=== INICIANDO SUITE DE PRUEBAS FINNHUB ===",
+		logger.String("version", ft.suite.Version),
+		logger.String("base_url", ft.baseURL),
+	)
+
+	// Verificar servidor antes de empezar
+	if err := ft.checkServerHealth(); err != nil {
+		return fmt.Errorf("servidor no está disponible: %w", err)
+	}
+
+	// Símbolos de prueba para Finnhub
+	testSymbols := []string{"AAPL", "MSFT", "GOOGL", "TSLA"}
+
+	// Test 1: Health check
+	ft.addTest(ft.makeRequest(
+		"Server Health Check",
+		ft.baseURL[:strings.LastIndex(ft.baseURL, "/api")]+"/health",
+		"GET",
+	))
+
+	// Test 2: Cotizaciones en tiempo real (Finnhub)
+	fmt.Println("🔍 Testing Finnhub Real-time Quotes...")
+	for _, symbol := range testSymbols {
+		ft.addTest(ft.makeRequest(
+			fmt.Sprintf("Finnhub Real-time Quote - %s", symbol),
+			fmt.Sprintf("%s/market-data/quote/%s", ft.baseURL, symbol),
+			"GET",
+		))
+	}
+
+	// Test 3: Perfiles de empresa (Finnhub)
+	fmt.Println("🏢 Testing Finnhub Company Profiles...")
+	for _, symbol := range testSymbols[:2] { // Solo 2 para no sobrecargar
+		ft.addTest(ft.makeRequest(
+			fmt.Sprintf("Finnhub Company Profile - %s", symbol),
+			fmt.Sprintf("%s/market-data/profile/%s", ft.baseURL, symbol),
+			"GET",
+		))
+	}
+
+	// Test 4: Noticias de empresa (Finnhub)
+	fmt.Println("📰 Testing Finnhub Company News...")
+	for _, symbol := range testSymbols[:2] {
+		ft.addTest(ft.makeRequest(
+			fmt.Sprintf("Finnhub Company News - %s", symbol),
+			fmt.Sprintf("%s/market-data/news/%s?days=7", ft.baseURL, symbol),
+			"GET",
+		))
+	}
+
+	// Test 5: Métricas financieras (Finnhub)
+	fmt.Println("📊 Testing Finnhub Financial Metrics...")
+	for _, symbol := range testSymbols[:2] {
+		ft.addTest(ft.makeRequest(
+			fmt.Sprintf("Finnhub Basic Financials - %s", symbol),
+			fmt.Sprintf("%s/market-data/financials/%s", ft.baseURL, symbol),
+			"GET",
+		))
+	}
+
+	// Test 6: Market Overview (Finnhub)
+	fmt.Println("🌍 Testing Finnhub Market Overview...")
+	ft.addTest(ft.makeRequest(
+		"Finnhub Market Overview",
+		fmt.Sprintf("%s/market-data/overview", ft.baseURL),
+		"GET",
+	))
+
+	// Test 7: Recommendation Trends (Finnhub)
+	fmt.Println("📈 Testing Finnhub Recommendation Trends...")
+	ft.addTest(ft.makeRequest(
+		"Finnhub Recommendation Trends - AAPL",
+		fmt.Sprintf("%s/market-data/recommendations/%s", ft.baseURL, testSymbols[0]),
+		"GET",
+	))
+
+	// Test 8: Earnings Calendar (Finnhub)
+	fmt.Println("📅 Testing Finnhub Earnings Calendar...")
+	ft.addTest(ft.makeRequest(
+		"Finnhub Earnings Calendar",
+		fmt.Sprintf("%s/market-data/earnings-calendar", ft.baseURL),
+		"GET",
+	))
+
+	// Test 9: Market Status (Finnhub)
+	fmt.Println("⏰ Testing Finnhub Market Status...")
+	ft.addTest(ft.makeRequest(
+		"Finnhub Market Status",
+		fmt.Sprintf("%s/market-data/market-status", ft.baseURL),
+		"GET",
+	))
+
+	// Test 10: Pruebas de manejo de errores
+	fmt.Println("🚫 Testing Error Handling...")
+	ft.addTest(ft.makeRequest(
+		"Finnhub Invalid Symbol Test",
+		fmt.Sprintf("%s/market-data/quote/INVALID_SYMBOL_TEST", ft.baseURL),
+		"GET",
+	))
+	// Finalizar suite
+	ft.finalizeSuite()
+
+	return nil
+}
+
+// RunFinnhubIntegrationTest ejecuta las pruebas de integración de Finnhub específicamente
+func RunFinnhubIntegrationTest() error {
+	fmt.Printf("🚀 Finnhub Integration Tester\n")
+	fmt.Printf("=============================\n\n")
 
 	// Crear tester
-	tester, err := NewFinnhubTester()
+	tester, err := NewEndpointTester()
 	if err != nil {
 		fmt.Printf("❌ Error inicializando tester: %v\n", err)
-		os.Exit(1)
+		return err
 	}
-
-	// Ejecutar pruebas
+	// Ejecutar pruebas específicas de Finnhub
 	if err := tester.runAllTests(); err != nil {
 		fmt.Printf("❌ Error ejecutando pruebas: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	// Cerrar loggers
@@ -465,10 +588,10 @@ func main() {
 		fmt.Printf("⚠️  Advertencia: Error cerrando test logger: %v\n", err)
 	}
 
-	// Exit code basado en resultados
-	if tester.suite.SuccessRate >= 80 {
-		os.Exit(0)
-	} else {
-		os.Exit(1)
+	// Retornar error si el éxito es bajo
+	if tester.suite.SuccessRate < 80 {
+		return fmt.Errorf("finnhub test success rate too low: %.1f%%", tester.suite.SuccessRate)
 	}
+
+	return nil
 }

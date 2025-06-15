@@ -25,4 +25,11 @@ type MarketDataService interface {
 
 	// Bulk operations
 	RefreshMarketData(ctx context.Context, symbols []string) error
+
+	// Alpha Vantage specific methods
+	GetHistoricalData(ctx context.Context, symbol, period, outputSize string) (*response.HistoricalDataResponse, error)
+	GetTechnicalIndicators(ctx context.Context, symbol, indicator, interval, timePeriod string) (*response.TechnicalIndicatorsResponse, error)
+	GetFundamentalData(ctx context.Context, symbol string) (*response.FundamentalDataResponse, error)
+	GetEarningsData(ctx context.Context, symbol string) (*response.EarningsDataResponse, error)
+	AlphaVantageHealthCheck(ctx context.Context) (bool, error)
 }

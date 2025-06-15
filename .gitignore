@@ -2,16 +2,82 @@
 *.exe
 *.test
 *.out
+*.so
+*.dylib
+*.dll
 
-# Archivos temporales
+# Archivos temporales y de testing
 *.log
 *.tmp
+*_test
+coverage.txt
+coverage.out
+coverage.html
+*.prof
+*.mem
+*.cpu
 
 # Archivos de dependencias
 vendor/
+go.work
+go.work.sum
 
 # Archivos de entorno de desarrollo
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
 
+# Archivos de configuración sensible
 .env
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+config.local.*
+secrets.*
+
+# Directorio de logs
+logs/
+*.log
+
+# Binarios compilados
+bin/
+dist/
+build/
+
+# Archivos de reportes y validación temporal
+validation_report_*.json
+test_results_*.json
+benchmark_*.json
+profile_*.json
+
+# Archivos del sistema operativo
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Archivos de backup
+*.bak
+*.backup
+*.old
+*.orig
+
+# Cache de herramientas de desarrollo
+.cache/
+*.cache
+.tmp/
+
+# Archivos específicos de Go
+# Dependency directories (remove the comment below to include it)
+# vendor/
+go.sum.backup
