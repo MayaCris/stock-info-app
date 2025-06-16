@@ -31,14 +31,15 @@ func NewAPIFactory(cfg *config.Config) *APIFactory {
 
 // Dependencies representa todas las dependencias necesarias para los handlers
 type Dependencies struct {
-	CompanyService     serviceInterfaces.CompanyService
-	BrokerageService   serviceInterfaces.BrokerageService
-	StockService       serviceInterfaces.StockRatingService
-	AnalysisService    serviceInterfaces.AnalysisService
-	MarketDataService  serviceInterfaces.MarketDataService
-	Logger             logger.Logger
-	CacheService       domainServices.CacheService
-	TransactionService domainServices.TransactionService
+	CompanyService      serviceInterfaces.CompanyService
+	BrokerageService    serviceInterfaces.BrokerageService
+	StockService        serviceInterfaces.StockRatingService
+	AnalysisService     serviceInterfaces.AnalysisService
+	MarketDataService   serviceInterfaces.MarketDataService
+	AlphaVantageService serviceInterfaces.AlphaVantageService
+	Logger              logger.Logger
+	CacheService        domainServices.CacheService
+	TransactionService  domainServices.TransactionService
 }
 
 // CreateDependencies crea todas las dependencias necesarias para los handlers
@@ -59,12 +60,16 @@ func (f *APIFactory) CreateDependencies() (*Dependencies, error) {
 	companyRepo := implementation.NewCompanyRepository(db.DB)
 	brokerageRepo := implementation.NewBrokerageRepository(db.DB)
 	stockRatingRepo := implementation.NewStockRatingRepository(db.DB)
-
 	// Market data repositories
 	marketDataRepo := implementation.NewMarketDataRepository(db.DB)
 	companyProfileRepo := implementation.NewCompanyProfileRepository(db.DB)
 	newsRepo := implementation.NewNewsRepository(db.DB)
 	basicFinancialsRepo := implementation.NewBasicFinancialsRepository(db.DB)
+
+	// Alpha Vantage specific repositories
+	historicalDataRepo := implementation.NewHistoricalDataRepository(db.DB)
+	financialMetricsRepo := implementation.NewFinancialMetricsRepository(db.DB)
+	technicalIndicatorsRepo := implementation.NewTechnicalIndicatorsRepository(db.DB)
 
 	// 4. Cache service
 	var cacheService domainServices.CacheService
@@ -77,23 +82,7 @@ func (f *APIFactory) CreateDependencies() (*Dependencies, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// 6. Service factory
-	if f.serviceFactory == nil {
-		f.serviceFactory = services.NewServiceFactory(services.ServiceFactoryConfig{
-			CompanyRepo:     companyRepo,
-			BrokerageRepo:   brokerageRepo,
-			StockRatingRepo: stockRatingRepo,
-			Logger:          appLogger,
-		})
-	}
-	// 7. Create services using factory methods
-	companyService := f.serviceFactory.GetCompanyService()
-	brokerageService := f.serviceFactory.GetBrokerageService()
-	stockService := f.serviceFactory.GetStockRatingService()
-	analysisService := f.serviceFactory.GetAnalysisService()
-
-	// 8. Create market data service using market data factory
+	// 6. Create market data service using market data factory
 	marketDataFactory := infraFactory.NewMarketDataFactory(infraFactory.MarketDataFactoryConfig{
 		Config:              f.config,
 		Logger:              appLogger,
@@ -104,16 +93,40 @@ func (f *APIFactory) CreateDependencies() (*Dependencies, error) {
 		CompanyRepo:         companyRepo,
 	})
 	marketDataService := marketDataFactory.CreateMarketDataService()
-	// Cache dependencies
+	// 7. Service factory with Alpha Vantage components
+	if f.serviceFactory == nil {
+		f.serviceFactory = services.NewServiceFactory(services.ServiceFactoryConfig{
+			CompanyRepo:             companyRepo,
+			BrokerageRepo:           brokerageRepo,
+			StockRatingRepo:         stockRatingRepo,
+			HistoricalDataRepo:      historicalDataRepo,
+			FinancialMetricsRepo:    financialMetricsRepo,
+			TechnicalIndicatorsRepo: technicalIndicatorsRepo,
+			AlphaVantageClient:      marketDataFactory.GetAlphaVantageClient(),
+			AlphaVantageAdapter:     marketDataFactory.GetAlphaVantageAdapter(),
+			Logger:                  appLogger,
+		})
+	}
+	// 8. Create services using factory methods
+	companyService := f.serviceFactory.GetCompanyService()
+	brokerageService := f.serviceFactory.GetBrokerageService()
+	stockService := f.serviceFactory.GetStockRatingService()
+	analysisService := f.serviceFactory.GetAnalysisService()
+
+	// 9. Create Alpha Vantage service using service factory
+	alphaVantageService := f.serviceFactory.GetAlphaVantageService()
+
+	// 10. Cache dependencies
 	f.dependencies = &Dependencies{
-		CompanyService:     companyService,
-		BrokerageService:   brokerageService,
-		StockService:       stockService,
-		AnalysisService:    analysisService,
-		MarketDataService:  marketDataService,
-		Logger:             appLogger,
-		CacheService:       cacheService,
-		TransactionService: transactionService,
+		CompanyService:      companyService,
+		BrokerageService:    brokerageService,
+		StockService:        stockService,
+		AnalysisService:     analysisService,
+		MarketDataService:   marketDataService,
+		AlphaVantageService: alphaVantageService,
+		Logger:              appLogger,
+		CacheService:        cacheService,
+		TransactionService:  transactionService,
 	}
 
 	return f.dependencies, nil
@@ -191,6 +204,15 @@ func (f *APIFactory) GetTransactionService() (domainServices.TransactionService,
 	return deps.TransactionService, nil
 }
 
+// GetAlphaVantageService retorna el servicio de Alpha Vantage
+func (f *APIFactory) GetAlphaVantageService() (serviceInterfaces.AlphaVantageService, error) {
+	deps, err := f.CreateDependencies()
+	if err != nil {
+		return nil, err
+	}
+	return deps.AlphaVantageService, nil
+}
+
 // GetAllServices retorna todos los servicios principales
 func (f *APIFactory) GetAllServices() (*APIServices, error) {
 	deps, err := f.CreateDependencies()
@@ -198,21 +220,23 @@ func (f *APIFactory) GetAllServices() (*APIServices, error) {
 		return nil, err
 	}
 	return &APIServices{
-		Company:    deps.CompanyService,
-		Brokerage:  deps.BrokerageService,
-		Stock:      deps.StockService,
-		Analysis:   deps.AnalysisService,
-		MarketData: deps.MarketDataService,
+		Company:      deps.CompanyService,
+		Brokerage:    deps.BrokerageService,
+		Stock:        deps.StockService,
+		Analysis:     deps.AnalysisService,
+		MarketData:   deps.MarketDataService,
+		AlphaVantage: deps.AlphaVantageService,
 	}, nil
 }
 
 // APIServices contiene todos los servicios principales de la API
 type APIServices struct {
-	Company    serviceInterfaces.CompanyService
-	Brokerage  serviceInterfaces.BrokerageService
-	Stock      serviceInterfaces.StockRatingService
-	Analysis   serviceInterfaces.AnalysisService
-	MarketData serviceInterfaces.MarketDataService
+	Company      serviceInterfaces.CompanyService
+	Brokerage    serviceInterfaces.BrokerageService
+	Stock        serviceInterfaces.StockRatingService
+	Analysis     serviceInterfaces.AnalysisService
+	MarketData   serviceInterfaces.MarketDataService
+	AlphaVantage serviceInterfaces.AlphaVantageService
 }
 
 // Cleanup libera recursos de la factory

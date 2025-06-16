@@ -416,74 +416,69 @@ func (h *HealthHandler) checkStockAPI(ctx context.Context) *ComponentHealth {
 		}
 	}
 
+	if h.config.ThirdStockAPI.Auth == "" {
+		return &ComponentHealth{
+			Status:      HealthStatusDegraded,
+			Message:     "Stock API auth token not configured",
+			LastChecked: time.Now(),
+			Duration:    time.Since(start),
+		}
+	}
+
 	// Create a timeout context for the API check
 	checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-
-	// Use the stock API client for a more realistic test
+	// Use the stock API client with proper authentication
 	client := stock_api.NewClient(h.config)
 
-	// Test the client's basic connectivity (this would depend on the actual client implementation)
-	// For now, we'll do a basic HTTP check
-	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
-	}
+	// Test the client's connectivity using the health check method
+	healthResult := client.HealthCheck(checkCtx)
 
-	req, err := http.NewRequestWithContext(checkCtx, "GET", h.config.ThirdStockAPI.BaseURL, nil)
-	if err != nil {
+	if healthResult.Error != nil {
 		return &ComponentHealth{
 			Status:      HealthStatusDegraded,
-			Message:     "Failed to create request for stock API",
+			Message:     "Stock API unreachable or network error",
 			LastChecked: time.Now(),
 			Duration:    time.Since(start),
 			Details: map[string]interface{}{
-				"error": err.Error(),
-				"api":   h.config.ThirdStockAPI.Name,
+				"error":       healthResult.Error.Error(),
+				"api":         h.config.ThirdStockAPI.Name,
+				"url":         h.config.ThirdStockAPI.BaseURL,
+				"status_code": healthResult.StatusCode,
 			},
 		}
 	}
 
-	resp, err := httpClient.Do(req)
-	if err != nil {
+	// Check if the API is healthy based on status code
+	if !healthResult.IsHealthy {
+		message := "Stock API responding but with error status"
+		if healthResult.StatusCode == 401 || healthResult.StatusCode == 403 {
+			message = "Stock API authentication failed - check bearer token"
+		}
+
 		return &ComponentHealth{
 			Status:      HealthStatusDegraded,
-			Message:     "Stock API unreachable",
-			LastChecked: time.Now(),
-			Duration:    time.Since(start),
-			Details: map[string]interface{}{
-				"error": err.Error(),
-				"api":   h.config.ThirdStockAPI.Name,
-				"url":   h.config.ThirdStockAPI.BaseURL,
-			},
-		}
-	}
-	defer resp.Body.Close()
-
-	// Consider 2xx and 4xx as healthy
-	if resp.StatusCode >= 200 && resp.StatusCode < 500 {
-		return &ComponentHealth{
-			Status:      HealthStatusHealthy,
-			Message:     "Stock API responding",
+			Message:     message,
 			LastChecked: time.Now(),
 			Duration:    time.Since(start),
 			Details: map[string]interface{}{
 				"api":         h.config.ThirdStockAPI.Name,
 				"url":         h.config.ThirdStockAPI.BaseURL,
-				"status_code": resp.StatusCode,
-				"client":      client != nil,
+				"status_code": healthResult.StatusCode,
 			},
 		}
 	}
 
 	return &ComponentHealth{
-		Status:      HealthStatusDegraded,
-		Message:     "Stock API returned server error",
+		Status:      HealthStatusHealthy,
+		Message:     "Stock API responding with authentication",
 		LastChecked: time.Now(),
 		Duration:    time.Since(start),
 		Details: map[string]interface{}{
 			"api":         h.config.ThirdStockAPI.Name,
 			"url":         h.config.ThirdStockAPI.BaseURL,
-			"status_code": resp.StatusCode,
+			"status_code": healthResult.StatusCode,
+			"client":      "authenticated",
 		},
 	}
 }

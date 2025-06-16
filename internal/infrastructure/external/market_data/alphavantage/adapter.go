@@ -63,16 +63,28 @@ func (a *Adapter) TimeSeriesDataToHistoricalData(ctx context.Context, response *
 			a.logger.Error(ctx, "Failed to parse close price", err, logger.String("price", data.Close))
 			continue
 		}
-
-		adjustedClose, err := strconv.ParseFloat(data.AdjustedClose, 64)
-		if err != nil {
-			a.logger.Error(ctx, "Failed to parse adjusted close", err, logger.String("price", data.AdjustedClose))
-			continue
+		adjustedClose := closePrice // Default to close price
+		if data.AdjustedClose != "" {
+			parsed, err := strconv.ParseFloat(data.AdjustedClose, 64)
+			if err != nil {
+				a.logger.Warn(ctx, "Failed to parse adjusted close, using close price",
+					logger.String("price", data.AdjustedClose),
+					logger.String("date", dateStr))
+			} else {
+				adjustedClose = parsed
+			}
 		}
-		volume, err := strconv.ParseInt(data.Volume, 10, 64)
-		if err != nil {
-			a.logger.Error(ctx, "Failed to parse volume", err, logger.String("volume", data.Volume))
-			continue
+
+		volume := int64(0) // Default to 0
+		if data.Volume != "" {
+			parsed, err := strconv.ParseInt(data.Volume, 10, 64)
+			if err != nil {
+				a.logger.Warn(ctx, "Failed to parse volume, using default value",
+					logger.String("volume", data.Volume),
+					logger.String("date", dateStr))
+			} else {
+				volume = parsed
+			}
 		}
 
 		historical := &entities.HistoricalData{
@@ -172,7 +184,7 @@ func (a *Adapter) CompanyOverviewToFinancialMetrics(ctx context.Context, overvie
 }
 
 // RSIResponseToTechnicalIndicators converts RSI response to TechnicalIndicators entities
-func (a *Adapter) RSIResponseToTechnicalIndicators(ctx context.Context, response *RSIResponse, symbol string, companyID uuid.UUID) ([]*entities.TechnicalIndicators, error) {
+func (a *Adapter) RSIResponseToTechnicalIndicators(ctx context.Context, response *RSIResponse, symbol string, companyID uuid.UUID, timePeriod int) ([]*entities.TechnicalIndicators, error) {
 	if response == nil || len(response.RSI) == 0 {
 		return nil, fmt.Errorf("empty RSI response")
 	}
@@ -193,14 +205,13 @@ func (a *Adapter) RSIResponseToTechnicalIndicators(ctx context.Context, response
 			a.logger.Error(ctx, "Failed to parse RSI value", err, logger.String("value", rsiValue.RSI))
 			continue
 		}
-
 		indicator := &entities.TechnicalIndicators{
 			ID:          uuid.New(),
 			CompanyID:   companyID,
 			Symbol:      symbol,
 			RSI:         rsi,
-			TimeFrame:   "1D", // Default timeframe based on interval
-			Period:      14,   // Default RSI period
+			TimeFrame:   "1D",              // Default timeframe based on interval
+			Period:      int32(timePeriod), // Use the provided time period
 			DataSource:  "alphavantage",
 			MarketDate:  date,
 			LastUpdated: time.Now(),

@@ -77,8 +77,8 @@ func (c *Client) FetchPage(ctx context.Context, nextPage string) (*APIResponse, 
 		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 
-	log.Printf("✅ Fetched page with %d items, next_page: %s", 
-		apiResponse.GetItemCount(), 
+	log.Printf("✅ Fetched page with %d items, next_page: %s",
+		apiResponse.GetItemCount(),
 		apiResponse.NextPage)
 
 	return &apiResponse, nil
@@ -113,7 +113,7 @@ func (c *Client) FetchAllPages(ctx context.Context) ([]StockRatingItem, error) {
 			}
 		}
 
-		log.Printf("✅ Page %d: %d total items, %d valid items", 
+		log.Printf("✅ Page %d: %d total items, %d valid items",
 			pageCount, len(response.Items), validItems)
 
 		// Check if there are more pages
@@ -133,7 +133,7 @@ func (c *Client) FetchAllPages(ctx context.Context) ([]StockRatingItem, error) {
 		}
 	}
 
-	log.Printf("🎉 Successfully fetched %d total items from %d pages", 
+	log.Printf("🎉 Successfully fetched %d total items from %d pages",
 		len(allItems), pageCount)
 
 	return allItems, nil
@@ -206,9 +206,54 @@ func (c *Client) buildURL(nextPage string) (string, error) {
 // GetStats returns client statistics (useful for monitoring)
 func (c *Client) GetStats() map[string]interface{} {
 	return map[string]interface{}{
-		"base_url":     c.baseURL,
-		"timeout":      c.httpClient.Timeout,
-		"has_auth":     c.authToken != "",
-		"user_agent":   "stock-system-backend/1.0",
+		"base_url":   c.baseURL,
+		"timeout":    c.httpClient.Timeout,
+		"has_auth":   c.authToken != "",
+		"user_agent": "stock-system-backend/1.0",
+	}
+}
+
+// HealthCheckResult contains the result of a health check
+type HealthCheckResult struct {
+	StatusCode int
+	IsHealthy  bool
+	Error      error
+}
+
+// HealthCheck performs a simple health check against the API and returns the status code
+func (c *Client) HealthCheck(ctx context.Context) *HealthCheckResult {
+	// Create a simple GET request to the base URL
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL, nil)
+	if err != nil {
+		return &HealthCheckResult{
+			StatusCode: 0,
+			IsHealthy:  false,
+			Error:      fmt.Errorf("failed to create request: %w", err),
+		}
+	}
+
+	// Add authorization header
+	req.Header.Set("Authorization", "Bearer "+c.authToken)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "stock-system-backend/1.0")
+
+	// Make HTTP request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return &HealthCheckResult{
+			StatusCode: 0,
+			IsHealthy:  false,
+			Error:      fmt.Errorf("failed to make request: %w", err),
+		}
+	}
+	defer resp.Body.Close()
+
+	// Consider 2xx as healthy, 4xx and 5xx as unhealthy but still connected
+	isHealthy := resp.StatusCode >= 200 && resp.StatusCode < 300
+
+	return &HealthCheckResult{
+		StatusCode: resp.StatusCode,
+		IsHealthy:  isHealthy,
+		Error:      nil,
 	}
 }

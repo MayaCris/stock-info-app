@@ -74,11 +74,16 @@ func (ar *APIRoutes) setupEntityRoutes(v1 *gin.RouterGroup, handlers *Handlers) 
 		analysisRoutes := NewAnalysisRoutes(ar.middlewareManager)
 		analysisRoutes.SetupAnalysisRoutes(v1, handlers.Analysis)
 	}
-
 	// Configurar rutas de market data usando MarketDataRoutes
 	if handlers.MarketData != nil {
 		marketDataRoutes := NewMarketDataRoutes(ar.middlewareManager)
 		marketDataRoutes.SetupMarketDataRoutes(v1, handlers.MarketData)
+	}
+
+	// Configurar rutas de Alpha Vantage usando AlphaVantageRoutes
+	if handlers.AlphaVantage != nil {
+		alphaVantageRoutes := NewAlphaVantageRoutes(ar.middlewareManager)
+		alphaVantageRoutes.SetupAlphaVantageRoutes(v1, handlers.AlphaVantage)
 	}
 }
 

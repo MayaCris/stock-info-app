@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/MayaCris/stock-info-app/internal/infrastructure/config"
@@ -121,11 +122,11 @@ func (c *Client) GetTimeSeriesDaily(ctx context.Context, symbol string, outputSi
 		"symbol":     symbol,
 		"outputsize": outputSize, // "compact" or "full"
 	}
-
 	body, err := c.makeRequest(ctx, "TIME_SERIES_DAILY_ADJUSTED", params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get daily time series for %s: %w", symbol, err)
 	}
+
 	var response TimeSeriesDailyResponse
 	if err := json.Unmarshal(body, &response); err != nil {
 		c.logger.Error(ctx, "Failed to unmarshal daily time series response", err,
@@ -134,7 +135,92 @@ func (c *Client) GetTimeSeriesDaily(ctx context.Context, symbol string, outputSi
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
+	// Log the response content for debugging when it's small or empty
+	if len(body) < 1000 || len(response.TimeSeries) == 0 {
+		c.logger.Debug(ctx, "Alpha Vantage response details",
+			logger.String("symbol", symbol),
+			logger.String("fullResponse", string(body)),
+			logger.String("errorMessage", response.ErrorMessage),
+			logger.String("information", response.Information),
+			logger.String("note", response.Note))
+	}
+	// Check for Alpha Vantage API errors or limits in the response
+	if response.ErrorMessage != "" {
+		c.logger.Error(ctx, "Alpha Vantage API returned error in time series response", nil,
+			logger.String("symbol", symbol),
+			logger.String("error", response.ErrorMessage))
+		return nil, fmt.Errorf("alpha Vantage API error: %s", response.ErrorMessage)
+	}
+
+	if response.Note != "" {
+		c.logger.Warn(ctx, "Alpha Vantage API returned note in time series response",
+			logger.String("symbol", symbol),
+			logger.String("note", response.Note))
+		return nil, fmt.Errorf("alpha Vantage API note: %s", response.Note)
+	}
+	// Check for premium endpoint message and fallback to basic endpoint
+	if response.Information != "" && strings.Contains(response.Information, "premium endpoint") {
+		c.logger.Warn(ctx, "Alpha Vantage premium endpoint access required, falling back to basic endpoint",
+			logger.String("symbol", symbol),
+			logger.String("information", response.Information))
+
+		// Try the basic (free) endpoint
+		return c.GetTimeSeriesDailyBasic(ctx, symbol, outputSize)
+	}
+
 	c.logger.Info(ctx, "Successfully retrieved daily time series",
+		logger.String("symbol", symbol),
+		logger.Int("dataPoints", len(response.TimeSeries)))
+
+	return &response, nil
+}
+
+// GetTimeSeriesDailyBasic retrieves daily historical data using the free endpoint
+func (c *Client) GetTimeSeriesDailyBasic(ctx context.Context, symbol string, outputSize string) (*TimeSeriesDailyResponse, error) {
+	params := map[string]string{
+		"symbol":     symbol,
+		"outputsize": outputSize, // "compact" or "full"
+	}
+
+	body, err := c.makeRequest(ctx, "TIME_SERIES_DAILY", params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get basic daily time series for %s: %w", symbol, err)
+	}
+
+	var response TimeSeriesDailyResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		c.logger.Error(ctx, "Failed to unmarshal basic daily time series response", err,
+			logger.String("symbol", symbol),
+			logger.String("responsePreview", string(body[:min(500, len(body))])))
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Log the response content for debugging when it's small or empty
+	if len(body) < 1000 || len(response.TimeSeries) == 0 {
+		c.logger.Debug(ctx, "Alpha Vantage basic response details",
+			logger.String("symbol", symbol),
+			logger.String("fullResponse", string(body)),
+			logger.String("errorMessage", response.ErrorMessage),
+			logger.String("information", response.Information),
+			logger.String("note", response.Note))
+	}
+
+	// Check for Alpha Vantage API errors or limits in the response
+	if response.ErrorMessage != "" {
+		c.logger.Error(ctx, "Alpha Vantage API returned error in basic time series response", nil,
+			logger.String("symbol", symbol),
+			logger.String("error", response.ErrorMessage))
+		return nil, fmt.Errorf("alpha Vantage API error: %s", response.ErrorMessage)
+	}
+
+	if response.Note != "" {
+		c.logger.Warn(ctx, "Alpha Vantage API returned note in basic time series response",
+			logger.String("symbol", symbol),
+			logger.String("note", response.Note))
+		return nil, fmt.Errorf("alpha Vantage API note: %s", response.Note)
+	}
+
+	c.logger.Info(ctx, "Successfully retrieved basic daily time series",
 		logger.String("symbol", symbol),
 		logger.Int("dataPoints", len(response.TimeSeries)))
 

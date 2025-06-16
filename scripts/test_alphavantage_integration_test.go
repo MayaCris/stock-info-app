@@ -26,12 +26,13 @@ import (
 	alphavantage "github.com/MayaCris/stock-info-app/internal/infrastructure/external/market_data/alphavantage"
 	finnhub "github.com/MayaCris/stock-info-app/internal/infrastructure/external/market_data/finnhub"
 	"github.com/MayaCris/stock-info-app/internal/infrastructure/logger"
+	"github.com/MayaCris/stock-info-app/internal/presentation/rest/handlers"
 	"github.com/MayaCris/stock-info-app/internal/presentation/rest/routes"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-func setupRouterAndController() (*gin.Engine, *routes.AlphaVantageController, *gorm.DB) {
+func setupRouterAndHandler() (*gin.Engine, *handlers.AlphaVantageHandler, *gorm.DB) {
 	cfg, err := config.Load()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to load config: %v", err))
@@ -74,12 +75,16 @@ func setupRouterAndController() (*gin.Engine, *routes.AlphaVantageController, *g
 		AlphaVantageAdapter: alphaVantageAdapter,
 		Logger:              log,
 	})
-	controller := routes.NewAlphaVantageController(service, log)
+	handler := handlers.NewAlphaVantageHandler(service, log)
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	api := r.Group("/api/v1")
-	routes.RegisterAlphaVantageRoutes(api, controller)
-	return r, controller, db
+	v1 := r.Group("/api/v1")
+
+	// Setup routes using the new handler pattern
+	alphaVantageRoutes := routes.NewAlphaVantageRoutes(nil) // middleware manager not needed for tests
+	alphaVantageRoutes.SetupAlphaVantageRoutes(v1, handler)
+
+	return r, handler, db
 }
 
 func getRandomSymbol(db *gorm.DB) string {
@@ -129,7 +134,7 @@ func TestAlphaVantageEndpoints_Integration(t *testing.T) {
 	if cfg.External.Secondary.Key == "" {
 		t.Skip("Alpha Vantage API key not configured, skipping integration tests")
 	}
-	router, _, db := setupRouterAndController()
+	router, _, db := setupRouterAndHandler()
 
 	// Use a well-known symbol for consistent testing
 	symbol := getRandomSymbol(db)
@@ -153,19 +158,19 @@ func TestAlphaVantageEndpoints_Integration(t *testing.T) {
 	}{
 		{
 			name:           "HealthCheck",
-			url:            "/api/v1/alpha-vantage/health",
+			url:            "/api/v1/alpha/health",
 			expectedStatus: http.StatusOK,
 			validateJSON: func(t *testing.T, body []byte) {
 				var healthResp map[string]interface{}
 				err := json.Unmarshal(body, &healthResp)
 				require.NoError(t, err, "Should parse health check response as JSON")
 				assert.Equal(t, "healthy", healthResp["status"], "Health check should return healthy status")
-				assert.Equal(t, "alpha-vantage", healthResp["service"], "Should identify alpha-vantage service")
+				assert.Equal(t, "alpha", healthResp["service"], "Should identify alpha service")
 			},
 		},
 		{
 			name:           "HistoricalData",
-			url:            fmt.Sprintf("/api/v1/alpha-vantage/historical/%s?period=daily&outputsize=compact", symbol),
+			url:            fmt.Sprintf("/api/v1/alpha/historical/%s?period=daily&outputsize=compact", symbol),
 			expectedStatus: http.StatusOK,
 			validateJSON: func(t *testing.T, body []byte) {
 				var histResp response.HistoricalDataResponse
@@ -179,7 +184,7 @@ func TestAlphaVantageEndpoints_Integration(t *testing.T) {
 		},
 		{
 			name:           "TechnicalIndicators",
-			url:            fmt.Sprintf("/api/v1/alpha-vantage/technical/%s?indicator=RSI&interval=daily&time_period=14", symbol),
+			url:            fmt.Sprintf("/api/v1/alpha/technical/%s?indicator=RSI&interval=daily&time_period=14", symbol),
 			expectedStatus: http.StatusOK,
 			validateJSON: func(t *testing.T, body []byte) {
 				var techResp response.TechnicalIndicatorsResponse
@@ -193,7 +198,7 @@ func TestAlphaVantageEndpoints_Integration(t *testing.T) {
 		},
 		{
 			name:           "FundamentalData",
-			url:            fmt.Sprintf("/api/v1/alpha-vantage/fundamental/%s", symbol),
+			url:            fmt.Sprintf("/api/v1/alpha/fundamental/%s", symbol),
 			expectedStatus: http.StatusOK,
 			validateJSON: func(t *testing.T, body []byte) {
 				var fundResp response.FundamentalDataResponse
@@ -206,7 +211,7 @@ func TestAlphaVantageEndpoints_Integration(t *testing.T) {
 		},
 		{
 			name:           "EarningsData",
-			url:            fmt.Sprintf("/api/v1/alpha-vantage/earnings/%s", symbol),
+			url:            fmt.Sprintf("/api/v1/alpha/earnings/%s", symbol),
 			expectedStatus: http.StatusOK,
 			validateJSON: func(t *testing.T, body []byte) {
 				var earnResp response.EarningsDataResponse

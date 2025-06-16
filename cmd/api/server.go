@@ -338,17 +338,20 @@ func createHandlers(cfg *config.Config, deps *factory.Dependencies) (*routes.Han
 
 	// Crear handler de analysis
 	analysisHandler := handlers.NewAnalysisHandler(deps.AnalysisService, deps.Logger)
-
 	// Crear handler de market data
 	marketDataHandler := handlers.NewMarketDataHandler(deps.MarketDataService, deps.Logger)
 
+	// Crear handler de Alpha Vantage
+	alphaVantageHandler := handlers.NewAlphaVantageHandler(deps.AlphaVantageService, deps.Logger)
+
 	return &routes.Handlers{
-		Health:     healthHandler,
-		Stock:      stockHandler,
-		Company:    companyHandler,
-		Brokerage:  brokerageHandler,
-		Analysis:   analysisHandler,
-		MarketData: marketDataHandler,
+		Health:       healthHandler,
+		Stock:        stockHandler,
+		Company:      companyHandler,
+		Brokerage:    brokerageHandler,
+		Analysis:     analysisHandler,
+		MarketData:   marketDataHandler,
+		AlphaVantage: alphaVantageHandler,
 	}, nil
 }
 

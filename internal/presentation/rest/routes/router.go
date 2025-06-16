@@ -25,12 +25,13 @@ type Router struct {
 
 // Handlers contiene todas las instancias de handlers
 type Handlers struct {
-	Health     *handlers.HealthHandler
-	Stock      *handlers.StockHandler
-	Company    *handlers.CompanyHandler
-	Brokerage  *handlers.BrokerageHandler
-	Analysis   *handlers.AnalysisHandler
-	MarketData *handlers.MarketDataHandler
+	Health       *handlers.HealthHandler
+	Stock        *handlers.StockHandler
+	Company      *handlers.CompanyHandler
+	Brokerage    *handlers.BrokerageHandler
+	Analysis     *handlers.AnalysisHandler
+	MarketData   *handlers.MarketDataHandler
+	AlphaVantage *handlers.AlphaVantageHandler
 }
 
 // NewRouter crea una nueva instancia del router principal
