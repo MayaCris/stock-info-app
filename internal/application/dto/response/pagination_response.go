@@ -1,5 +1,7 @@
 package response
 
+import "strconv"
+
 // PaginatedResponse represents a paginated response
 type PaginatedResponse[T any] struct {
 	Items []T        `json:"items"`
@@ -69,7 +71,7 @@ func NewPaginatedAPIResponse[T any](items []T, page, perPage, total int) *APIRes
 func GetDefaultPagination() PaginationRequest {
 	return PaginationRequest{
 		Page:    1,
-		PerPage: 20,
+		PerPage: 10,
 	}
 }
 
@@ -79,7 +81,7 @@ func (p *PaginationRequest) Validate() error {
 		p.Page = 1
 	}
 	if p.PerPage < 1 {
-		p.PerPage = 20
+		p.PerPage = 10
 	}
 	if p.PerPage > 100 {
 		p.PerPage = 100
@@ -95,4 +97,35 @@ func (p *PaginationRequest) GetOffset() int {
 // GetLimit returns the limit for database queries
 func (p *PaginationRequest) GetLimit() int {
 	return p.PerPage
+}
+
+// ParsePaginationFromQuery parses pagination parameters from query strings
+func ParsePaginationFromQuery(pageStr, perPageStr string) *PaginationRequest {
+	defaults := GetDefaultPagination()
+	
+	// Parse page
+	page := defaults.Page
+	if pageStr != "" {
+		if parsedPage, err := strconv.Atoi(pageStr); err == nil && parsedPage > 0 {
+			page = parsedPage
+		}
+	}
+	
+	// Parse per_page
+	perPage := defaults.PerPage
+	if perPageStr != "" {
+		if parsedPerPage, err := strconv.Atoi(perPageStr); err == nil && parsedPerPage > 0 {
+			perPage = parsedPerPage
+		}
+	}
+	
+	pagination := &PaginationRequest{
+		Page:    page,
+		PerPage: perPage,
+	}
+	
+	// Validate and apply constraints
+	pagination.Validate()
+	
+	return pagination
 }

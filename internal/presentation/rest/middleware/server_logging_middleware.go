@@ -37,7 +37,7 @@ func DefaultServerLoggingConfig() ServerLoggingConfig {
 		LogHeaders:           true,
 		LogRequestBody:       false, // Por seguridad, no logear bodies por defecto
 		LogResponseBody:      false,
-		SkipPaths:            []string{"/health", "/metrics", "/favicon.ico"},
+		SkipPaths:            []string{"/metrics", "/favicon.ico"},
 		SkipSuccessfulPaths:  []string{"/health"},
 		LogSlowRequests:      true,
 		SlowRequestThreshold: 1 * time.Second,

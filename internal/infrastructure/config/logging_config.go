@@ -61,15 +61,13 @@ func DefaultServerLoggingConfig() ServerLoggingConfig {
 	return ServerLoggingConfig{
 		Enabled: true,
 		Level:   "info",
-		Format:  "json",
-
-		Middleware: MiddlewareLogConfig{
+		Format:  "json", Middleware: MiddlewareLogConfig{
 			LogRequests:         true,
 			LogResponses:        true,
 			LogHeaders:          true,
 			LogSlowRequests:     true,
 			SlowThreshold:       1 * time.Second,
-			SkipPaths:           []string{"/health", "/metrics", "/favicon.ico"},
+			SkipPaths:           []string{"/metrics", "/favicon.ico"},
 			SkipSuccessfulPaths: []string{"/health"},
 		},
 

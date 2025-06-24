@@ -44,15 +44,18 @@ func CORSMiddleware(corsConfig config.CORSConfig) gin.HandlerFunc {
 func SimpleCORSMiddleware() gin.HandlerFunc {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
-
 		// Allow common development origins
 		allowedOrigins := []string{
 			"http://localhost:3000",
 			"http://localhost:8080",
 			"http://localhost:4200",
+			"http://localhost:5173", // Vite development server
+			"http://localhost:5177",
 			"http://127.0.0.1:3000",
 			"http://127.0.0.1:8080",
 			"http://127.0.0.1:4200",
+			"http://127.0.0.1:5173", // Vite development server
+			"http://127.0.0.1:5177",
 		}
 
 		originAllowed := false

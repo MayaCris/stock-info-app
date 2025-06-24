@@ -334,6 +334,7 @@ func (s *stockRatingService) convertToStockRatingResponse(rating *entities.Stock
 			Sector:    company.Sector,
 			MarketCap: company.MarketCap,
 			Exchange:  company.Exchange,
+			Logo:      company.Logo,
 			IsActive:  company.IsActive,
 			CreatedAt: company.CreatedAt,
 			UpdatedAt: company.UpdatedAt,

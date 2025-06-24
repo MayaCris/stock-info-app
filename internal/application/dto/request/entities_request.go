@@ -13,6 +13,7 @@ type CreateCompanyRequest struct {
 	Sector    string  `json:"sector,omitempty"`
 	MarketCap float64 `json:"market_cap,omitempty"`
 	Exchange  string  `json:"exchange,omitempty"`
+	Logo      string  `json:"logo,omitempty"`
 }
 
 // UpdateCompanyRequest represents request to update a company
@@ -21,6 +22,7 @@ type UpdateCompanyRequest struct {
 	Sector    *string  `json:"sector,omitempty"`
 	MarketCap *float64 `json:"market_cap,omitempty"`
 	Exchange  *string  `json:"exchange,omitempty"`
+	Logo      *string  `json:"logo,omitempty"`
 	IsActive  *bool    `json:"is_active,omitempty"`
 }
 

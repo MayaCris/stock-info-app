@@ -24,6 +24,12 @@ func GetDefaultCORSConfig() *CORSConfig {
 			"http://localhost:3000", // React development server
 			"http://localhost:8080", // Vue development server
 			"http://localhost:4200", // Angular development server
+			"http://localhost:5173", // Vite development server (your frontend)
+			"http://localhost:5174",
+			"http://localhost:5175",
+			"http://localhost:5176",
+			"http://localhost:5177",
+			"http://127.0.0.1:5173", // Vite development server (your frontend)
 		},
 		AllowMethods: []string{
 			"GET",

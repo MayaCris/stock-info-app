@@ -14,6 +14,7 @@ type CompanyResponse struct {
 	Sector    string    `json:"sector,omitempty"`
 	MarketCap float64   `json:"market_cap,omitempty"`
 	Exchange  string    `json:"exchange,omitempty"`
+	Logo      string    `json:"logo,omitempty"`
 	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -26,6 +27,7 @@ type CompanyListResponse struct {
 	Name     string    `json:"name"`
 	Sector   string    `json:"sector,omitempty"`
 	Exchange string    `json:"exchange,omitempty"`
+	Logo     string    `json:"logo,omitempty"`
 	IsActive bool      `json:"is_active"`
 }
 

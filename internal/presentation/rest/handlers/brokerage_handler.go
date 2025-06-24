@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -731,26 +730,8 @@ func (h *BrokerageHandler) SearchBrokeragesByName(c *gin.Context) {
 
 // parsePagination extrae y valida los parámetros de paginación
 func (h *BrokerageHandler) parsePagination(c *gin.Context) *response.PaginationRequest {
-	pageParam := c.DefaultQuery("page", "1")
-	perPageParam := c.DefaultQuery("per_page", "10")
-
-	page, err := strconv.Atoi(pageParam)
-	if err != nil || page < 1 {
-		page = 1
-	}
-
-	perPage, err := strconv.Atoi(perPageParam)
-	if err != nil || perPage < 1 {
-		perPage = 10
-	}
-
-	// Limit max per_page to prevent abuse
-	if perPage > 100 {
-		perPage = 100
-	}
-
-	return &response.PaginationRequest{
-		Page:    page,
-		PerPage: perPage,
-	}
+	pageParam := c.Query("page")
+	perPageParam := c.Query("per_page")
+	
+	return response.ParsePaginationFromQuery(pageParam, perPageParam)
 }

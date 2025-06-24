@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -126,13 +127,14 @@ func (s *marketDataService) GetRealTimeQuote(ctx context.Context, symbol string)
 
 // GetCompanyProfile gets detailed company profile
 func (s *marketDataService) GetCompanyProfile(ctx context.Context, symbol string) (*response.CompanyProfileResponse, error) {
-	// Try to get from database first
-	existingProfile, err := s.companyProfileRepo.GetBySymbol(ctx, symbol)
-	if err == nil && time.Since(existingProfile.LastUpdated).Hours() < 24 {
+	// Try to get from companies table first
+	existingCompany, err := s.companyRepo.GetByTicker(ctx, symbol)
+	if err == nil && existingCompany.ProfileLastUpdated != nil && 
+		time.Since(*existingCompany.ProfileLastUpdated).Hours() < 24 {
 		s.logger.Debug(ctx, "Returning cached company profile",
 			logger.String("symbol", symbol),
 		)
-		return s.convertToCompanyProfileResponse(existingProfile), nil
+		return s.convertCompanyToProfileResponse(existingCompany), nil
 	}
 
 	// Fetch fresh data from Finnhub
@@ -144,26 +146,27 @@ func (s *marketDataService) GetCompanyProfile(ctx context.Context, symbol string
 		return nil, response.InternalServerError("Failed to fetch company profile")
 	}
 
-	// Convert to domain entity
-	companyProfile, err := s.finnhubAdapter.ProfileToCompanyProfile(ctx, profile)
+	// Convert to company entity and update/create company
+	company, err := s.convertFinnhubProfileToCompany(ctx, symbol, profile, existingCompany)
 	if err != nil {
-		s.logger.Error(ctx, "Failed to convert profile to company profile", err,
+		s.logger.Error(ctx, "Failed to convert profile to company", err,
 			logger.String("symbol", symbol),
 		)
 		return nil, response.InternalServerError("Failed to process company profile")
 	}
 
-	// Validate data
-	if err := s.finnhubAdapter.ValidateCompanyProfile(companyProfile); err != nil {
-		s.logger.Error(ctx, "Invalid company profile", err,
-			logger.String("symbol", symbol),
-		)
-		return nil, response.InternalServerError("Invalid company profile")
+	// Save to companies table
+	var saveErr error
+	if existingCompany != nil {
+		// Update existing company
+		saveErr = s.companyRepo.Update(ctx, company)
+	} else {
+		// Create new company
+		saveErr = s.companyRepo.Create(ctx, company)
 	}
 
-	// Save to database
-	if err := s.companyProfileRepo.UpsertBySymbol(ctx, companyProfile); err != nil {
-		s.logger.Error(ctx, "Failed to save company profile", err,
+	if saveErr != nil {
+		s.logger.Error(ctx, "Failed to save company profile", saveErr,
 			logger.String("symbol", symbol),
 		)
 		// Don't return error here, we can still return the data
@@ -171,10 +174,10 @@ func (s *marketDataService) GetCompanyProfile(ctx context.Context, symbol string
 
 	s.logger.Info(ctx, "Successfully retrieved and saved company profile",
 		logger.String("symbol", symbol),
-		logger.String("company_name", companyProfile.Name),
+		logger.String("company_name", company.Name),
 	)
 
-	return s.convertToCompanyProfileResponse(companyProfile), nil
+	return s.convertCompanyToProfileResponse(company), nil
 }
 
 // GetCompanyNews gets recent news for a company
@@ -694,4 +697,93 @@ func (s *marketDataService) convertToBasicFinancialsResponse(bf *entities.BasicF
 		FiscalQuarter:     bf.FiscalQuarter,
 		LastUpdated:       bf.LastUpdated,
 	}
+}
+
+// convertCompanyToProfileResponse converts Company entity to CompanyProfileResponse
+func (s *marketDataService) convertCompanyToProfileResponse(company *entities.Company) *response.CompanyProfileResponse {
+	var lastUpdated time.Time
+	if company.ProfileLastUpdated != nil {
+		lastUpdated = *company.ProfileLastUpdated
+	}
+	
+	var ipoDate time.Time
+	if company.IPODate != nil {
+		ipoDate = *company.IPODate
+	}
+
+	return &response.CompanyProfileResponse{
+		ID:                company.ID,
+		Symbol:            company.Ticker,
+		Name:              company.Name,
+		Description:       company.Description,
+		Industry:          company.Industry,
+		Sector:            company.Sector,
+		Country:           company.Country,
+		Currency:          company.Currency,
+		MarketCap:         int64(company.MarketCap),
+		SharesOutstanding: company.SharesOutstanding,
+		PERatio:           company.PERatio,
+		DividendYield:     company.DividendYield,
+		EPS:               company.EPS,
+		Beta:              company.Beta,
+		Website:           company.Website,
+		Logo:              company.Logo,
+		IPODate:           ipoDate,
+		EmployeeCount:     company.EmployeeCount,
+		LastUpdated:       lastUpdated,
+	}
+}
+
+// convertFinnhubProfileToCompany converts Finnhub profile to Company entity, updating existing if provided
+func (s *marketDataService) convertFinnhubProfileToCompany(ctx context.Context, symbol string, profile interface{}, existingCompany *entities.Company) (*entities.Company, error) {
+	// Type assert the profile to the correct type
+	finnhubProfile, ok := profile.(*finnhub.CompanyProfileResponse)
+	if !ok {
+		return nil, fmt.Errorf("invalid profile type")
+	}
+
+	// Get the Finnhub adapter conversion first to get structured data
+	companyProfile, err := s.finnhubAdapter.ProfileToCompanyProfile(ctx, finnhubProfile)
+	if err != nil {
+		return nil, err
+	}
+
+	var company *entities.Company
+	now := time.Now()
+
+	if existingCompany != nil {
+		// Update existing company
+		company = existingCompany
+	} else {
+		// Create new company
+		company = &entities.Company{
+			Ticker:   symbol,
+			IsActive: true,
+		}
+	}
+
+	// Update fields from Finnhub profile
+	company.Name = companyProfile.Name
+	company.Description = companyProfile.Description
+	company.Industry = companyProfile.Industry
+	company.Sector = companyProfile.Sector
+	company.Country = companyProfile.Country
+	company.Currency = companyProfile.Currency
+	company.MarketCap = float64(companyProfile.MarketCap)
+	company.SharesOutstanding = companyProfile.SharesOutstanding
+	company.PERatio = companyProfile.PERatio
+	company.DividendYield = companyProfile.DividendYield
+	company.EPS = companyProfile.EPS
+	company.Beta = companyProfile.Beta
+	company.Website = companyProfile.Website
+	company.Logo = companyProfile.Logo
+	company.EmployeeCount = companyProfile.EmployeeCount
+	company.DataSource = "finnhub"
+	company.ProfileLastUpdated = &now
+
+	if !companyProfile.IPODate.IsZero() {
+		company.IPODate = &companyProfile.IPODate
+	}
+
+	return company, nil
 }

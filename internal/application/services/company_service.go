@@ -53,6 +53,7 @@ func (s *companyService) CreateCompany(ctx context.Context, req *request.CreateC
 		Sector:    req.Sector,
 		Exchange:  req.Exchange,
 		MarketCap: req.MarketCap,
+		Logo:      req.Logo,
 		IsActive:  true,
 	}
 
@@ -116,6 +117,9 @@ func (s *companyService) UpdateCompany(ctx context.Context, id uuid.UUID, req *r
 	}
 	if req.MarketCap != nil {
 		company.MarketCap = *req.MarketCap
+	}
+	if req.Logo != nil {
+		company.Logo = *req.Logo
 	}
 	if req.IsActive != nil {
 		company.IsActive = *req.IsActive
@@ -450,6 +454,7 @@ func (s *companyService) convertToCompanyResponse(company *entities.Company) *re
 		Sector:    company.Sector,
 		MarketCap: company.MarketCap,
 		Exchange:  company.Exchange,
+		Logo:      company.Logo,
 		IsActive:  company.IsActive,
 		CreatedAt: company.CreatedAt,
 		UpdatedAt: company.UpdatedAt,
@@ -463,6 +468,7 @@ func (s *companyService) convertToCompanyListResponse(company *entities.Company)
 		Name:     company.Name,
 		Sector:   company.Sector,
 		Exchange: company.Exchange,
+		Logo:     company.Logo,
 		IsActive: company.IsActive,
 	}
 }

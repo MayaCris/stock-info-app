@@ -83,6 +83,7 @@ func (a *Adapter) ProfileToCompanyProfile(ctx context.Context, profile *CompanyP
 		Symbol:            profile.Ticker,
 		Name:              profile.Name,
 		Industry:          profile.Industry,
+		Sector:            profile.Industry, // Map finnhubIndustry to both Industry and Sector
 		Country:           profile.Country,
 		Currency:          profile.Currency,
 		MarketCap:         int64(profile.MarketCap * 1_000_000),        // Convert from millions to actual value
